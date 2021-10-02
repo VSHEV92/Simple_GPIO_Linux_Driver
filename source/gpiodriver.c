@@ -23,15 +23,28 @@ struct my_gpio_instance {
  * установить gpio line как выход
  */
 static int mygpio_dir_out(struct gpio_chip *gc, unsigned int gpio, int value){
-	printk("Set direction of line %d to output and value to %d\n", gpio, value);
+	struct my_gpio_instance *ip = gpiochip_get_data(gc);
+
+
+	pr_info("Set direction of line %d to output and value to %d\n", gpio, value);
+	
+	ip->dir = ip->dir | (1<<gpio);
+	writel(ip->dir, ip->regs + GPIO_DIR_OFFSET);
+
 	return 0;
 }
 
 /**
  * установить gpio line как вход
  */
-static int mygpio_dir_in(struct gpio_chip *gc, unsigned int gpio){
-	printk("Set direction of line %d to input\n", gpio);
+static int mygpio_dir_in(struct gpio_chip *gc, unsigned int gpio){	
+	struct my_gpio_instance *ip = gpiochip_get_data(gc);
+
+	pr_info("Set direction of line %d to input\n", gpio);
+
+	ip->dir = ip->dir & ~(1<<gpio);
+	writel(ip->dir, ip->regs + GPIO_DIR_OFFSET);
+
 	return 0;
 }
 
@@ -41,26 +54,25 @@ static int mygpio_dir_in(struct gpio_chip *gc, unsigned int gpio){
 static void mygpio_data_set(struct gpio_chip *gc, unsigned int gpio, int value){
 	struct my_gpio_instance *ip = gpiochip_get_data(gc);
 
-	printk("Set line %d to value %d\n", gpio, value);
+	pr_info("Set line %d to value %d\n", gpio, value);
 
 	if (value)
-		writel(0xFFFF, ip->regs + GPIO_DATA_OFFSET);
+		ip->data = ip->data | (1<<gpio);
 	else
-		writel(0x0000, ip->regs + GPIO_DATA_OFFSET);
+		ip->data = ip->data & ~(1<<gpio);
+
+	writel(ip->data, ip->regs + GPIO_DATA_OFFSET);
 }
 
 /**
  * считать значение gpio line
  */
 static int mygpio_data_get(struct gpio_chip *gc, unsigned int gpio){
-	u32 val;
 	struct my_gpio_instance *ip = gpiochip_get_data(gc);
 	
-	printk("Get line %d value\n", gpio);
+	pr_info("Get line %d value\n", gpio);
 
-	val = readl(ip->regs + GPIO_DATA_OFFSET);
-
-	return 0;
+	return readl(ip->regs + GPIO_DATA_OFFSET);
 }
 
 /**
@@ -68,10 +80,18 @@ static int mygpio_data_get(struct gpio_chip *gc, unsigned int gpio){
  */
 static int my_xlnx_gpio_probe(struct platform_device *pdev){
 	int status = 0;
+	struct resource *res;
 	struct my_gpio_instance *ip_core;
 	struct device_node *np = pdev->dev.of_node;
 	
 	dev_info(&pdev->dev, "Module Probe Function\n");
+
+	// получить ресурс с адресами регистров
+	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+	if (!res) {
+		dev_err(&pdev->dev, "No resource defined\n");
+		return -EBUSY;
+	}
 
 	// выделение памяти для структуры Xilinx GPIO
 	ip_core = devm_kzalloc(&pdev->dev, sizeof(*ip_core), GFP_KERNEL);
@@ -84,16 +104,16 @@ static int my_xlnx_gpio_probe(struct platform_device *pdev){
 		dev_dbg(&pdev->dev, "Missing pio_width property\n");
 
 	// получить адрес ядра Xilinx GPIO
-	ip_core->regs = devm_platform_ioremap_resource(pdev, 0);
+	ip_core->regs = devm_ioremap_resource(&pdev->dev, res);
 	if (IS_ERR(ip_core->regs)) {
 		dev_err(&pdev->dev, "Failed to ioremap memory resource\n");
 		return PTR_ERR(ip_core->regs);
 	}
 	
 	// получения источника тактового сигнала
-    ip_core->clk = devm_clk_get_optional(&pdev->dev, NULL);
+    ip_core->clk = devm_clk_get(&pdev->dev, NULL);
 	if (IS_ERR(ip_core->clk))
-		return dev_err_probe(&pdev->dev, PTR_ERR(ip_core->clk), "Input clock not found.\n");
+		return PTR_ERR(ip_core->clk);
 
 	// включение тактового сигнала
 	status = clk_prepare_enable(ip_core->clk);
@@ -115,8 +135,15 @@ static int my_xlnx_gpio_probe(struct platform_device *pdev){
 	status = devm_gpiochip_add_data(&pdev->dev, &ip_core->gc, ip_core);
 	if (status) {
 		dev_err(&pdev->dev, "Failed to add GPIO chip\n");
+		clk_disable_unprepare(ip_core->clk);
 		return status;
 	}
+
+	// устанавливаем начальные значения
+	ip_core->dir = 0;
+	ip_core->data = 0;
+	writel(ip_core->dir, ip_core->regs + GPIO_DIR_OFFSET);
+	writel(ip_core->data, ip_core->regs + GPIO_DATA_OFFSET);
 
 	return 0;
 }

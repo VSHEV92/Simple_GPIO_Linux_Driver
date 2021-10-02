@@ -2,13 +2,13 @@
 /delete-node/ &axi_gpio_0;
 
 &amba_pl {
-    my_gpio_0: gpio@a0000000 {
+    my_gpio_0: gpio@41200000 {
         #gpio-cells = <3>;
         clock-names = "s_axi_aclk";
-        clocks = <&zynqmp_clk 71>;
+        clocks = <&clkc 15>;
         compatible = "vshev92,my_xlnx_gpio";
-        reg = <0x0 0xa0000000 0x0 0x10000>;
-        gpio-width = <0x8>;
+        reg = <0x41200000 0x10000>;
+        gpio-width = <0x4>;
     };
 };
 
