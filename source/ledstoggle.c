@@ -5,7 +5,7 @@
 
 int main(){
 
-	const char* chip_path = "/dev/gpiochip2";
+	const char* chip_path = "/dev/gpiochip1";
 	struct gpiod_chip* chip;
 	struct gpiod_line* pin[LED_NUMB];
 	
@@ -28,7 +28,7 @@ int main(){
 			gpiod_line_set_value(pin[i], 1);
 			usleep(100000); 
 		}
-		gpiod_line_set_value(pin[LED_NUMB], 0);
+		gpiod_line_set_value(pin[LED_NUMB-1], 0);
 	}
 
 	return 0;

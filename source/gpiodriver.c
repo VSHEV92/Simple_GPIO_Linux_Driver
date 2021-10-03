@@ -28,7 +28,7 @@ static int mygpio_dir_out(struct gpio_chip *gc, unsigned int gpio, int value){
 
 	pr_info("Set direction of line %d to output and value to %d\n", gpio, value);
 	
-	ip->dir = ip->dir | (1<<gpio);
+	ip->dir = ip->dir & ~(1<<gpio);
 	writel(ip->dir, ip->regs + GPIO_DIR_OFFSET);
 
 	return 0;
@@ -42,7 +42,7 @@ static int mygpio_dir_in(struct gpio_chip *gc, unsigned int gpio){
 
 	pr_info("Set direction of line %d to input\n", gpio);
 
-	ip->dir = ip->dir & ~(1<<gpio);
+	ip->dir = ip->dir | (1<<gpio);
 	writel(ip->dir, ip->regs + GPIO_DIR_OFFSET);
 
 	return 0;
@@ -86,13 +86,6 @@ static int my_xlnx_gpio_probe(struct platform_device *pdev){
 	
 	dev_info(&pdev->dev, "Module Probe Function\n");
 
-	// получить ресурс с адресами регистров
-	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
-	if (!res) {
-		dev_err(&pdev->dev, "No resource defined\n");
-		return -EBUSY;
-	}
-
 	// выделение памяти для структуры Xilinx GPIO
 	ip_core = devm_kzalloc(&pdev->dev, sizeof(*ip_core), GFP_KERNEL);
 	if (!ip_core)
@@ -104,6 +97,7 @@ static int my_xlnx_gpio_probe(struct platform_device *pdev){
 		dev_dbg(&pdev->dev, "Missing pio_width property\n");
 
 	// получить адрес ядра Xilinx GPIO
+	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	ip_core->regs = devm_ioremap_resource(&pdev->dev, res);
 	if (IS_ERR(ip_core->regs)) {
 		dev_err(&pdev->dev, "Failed to ioremap memory resource\n");
@@ -111,7 +105,7 @@ static int my_xlnx_gpio_probe(struct platform_device *pdev){
 	}
 	
 	// получения источника тактового сигнала
-    ip_core->clk = devm_clk_get(&pdev->dev, NULL);
+    ip_core->clk = devm_clk_get(&pdev->dev, "s_axi_aclk");
 	if (IS_ERR(ip_core->clk))
 		return PTR_ERR(ip_core->clk);
 
@@ -140,11 +134,10 @@ static int my_xlnx_gpio_probe(struct platform_device *pdev){
 	}
 
 	// устанавливаем начальные значения
-	ip_core->dir = 0;
+	ip_core->dir = 0xFFFFFFFF;
 	ip_core->data = 0;
 	writel(ip_core->dir, ip_core->regs + GPIO_DIR_OFFSET);
-	writel(ip_core->data, ip_core->regs + GPIO_DATA_OFFSET);
-
+	
 	return 0;
 }
 
