@@ -21,11 +21,11 @@
 
 ##### Содержимое папки source
 
-- make_hardware.tcl - скрипт для создания Vivado проекта и xsa-файла
-- system-user.dtsi - модернизация device-tree для подключения собственного драйвера
-- gpiodriver.c - исходный код GPIO драйвера
-- ledstoggle.c -  приложение для проверки драйвера
-- ledstoggle.bb -  рецепт yocto для сборки приложения
+- **make_hardware.tcl** - скрипт для создания Vivado проекта и xsa-файла
+- **system-user.dtsi** - модернизация device-tree для подключения собственного драйвера
+- **gpiodriver.c** - исходный код GPIO драйвера
+- **ledstoggle.c** -  приложение для проверки драйвера
+- **ledstoggle.bb** -  рецепт yocto для сборки приложения
 
 ------
 
