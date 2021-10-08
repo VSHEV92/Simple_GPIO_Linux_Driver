@@ -2,6 +2,8 @@ SHELL := /bin/bash
 
 # собрать проект из bsp-файла
 bsp:
+	source /opt/PetaLinux/settings.sh; \
+	petalinux-create -t project -s Simple_GPIO_Driver.bsp -n petaproject
 
 # собрать проект из xsa-файла и исходников
 xsa: Simple_GPIO_HW.xsa
